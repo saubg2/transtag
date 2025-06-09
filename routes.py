@@ -260,8 +260,9 @@ def auto_create_upi_rules():
     # Pattern 1: UPI/xxx/UPI/upiid@bank/bank/xxx (traditional format)
     # Pattern 2: UPI/upiid/NA/bank/xxx/xxx (paytm QR format)  
     # Pattern 3: UPI/upiid/xxx/bank/xxx/xxx (apple services format)
+    # Pattern 4: UPI/xxx/UPI/phonenumber@bank/bank/xxx (mobile number format)
     upi_patterns = [
-        r'UPI/[^/]*/UPI/([^@/]+@[^/]+)/',  # Traditional: swiggystores@ic
+        r'UPI/[^/]*/UPI/([^@/]+@[^/]+)/',  # Traditional: swiggystores@ic, 9999999999@xyz
         r'UPI/([^/]+)/NA/',                # PayTM QR: paytmqr28100505
         r'UPI/([^/]+\.b)/',               # Apple services: appleservices.b
         r'UPI/([^/]+)/MandateRequest/'    # Apple mandate: appleservices.b
