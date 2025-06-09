@@ -28,7 +28,7 @@ def upload_csv():
             flash('No file selected', 'error')
             return redirect(request.url)
         
-        if not file.filename.lower().endswith('.csv'):
+        if not file.filename or not file.filename.lower().endswith('.csv'):
             flash('Please upload a CSV file', 'error')
             return redirect(request.url)
         
@@ -127,12 +127,30 @@ def delete_rule(rule_id):
 @app.route('/transactions')
 def view_transactions():
     """Function 3: View transactions with applied rules"""
-    # Apply rules to transactions
+    # Apply rules to transactions (includes auto-creating UPI rules)
     apply_rules_to_transactions()
     
     # Get all transactions ordered by serial number
     transactions = Transaction.query.order_by(Transaction.serial_number.asc()).all()
     return render_template('transactions.html', transactions=transactions)
+
+@app.route('/auto-create-upi-rules', methods=['POST'])
+def manual_create_upi_rules():
+    """Manually trigger UPI rule creation"""
+    try:
+        before_count = Rule.query.count()
+        auto_create_upi_rules()
+        after_count = Rule.query.count()
+        new_rules = after_count - before_count
+        
+        if new_rules > 0:
+            flash(f'Created {new_rules} new UPI rules automatically', 'success')
+        else:
+            flash('No new UPI IDs found to create rules for', 'info')
+    except Exception as e:
+        flash(f'Error creating UPI rules: {str(e)}', 'error')
+    
+    return redirect(url_for('manage_rules'))
 
 @app.route('/transactions/download')
 def download_transactions():
@@ -159,6 +177,9 @@ def download_transactions():
 
 def apply_rules_to_transactions():
     """Apply regex rules to transactions based on priority"""
+    # First, auto-create UPI rules
+    auto_create_upi_rules()
+    
     # Get all rules ordered by priority (1 is highest priority)
     rules = Rule.query.order_by(Rule.priority.asc(), Rule.created_at.asc()).all()
     
@@ -182,3 +203,52 @@ def apply_rules_to_transactions():
                 continue
     
     db.session.commit()
+
+def auto_create_upi_rules():
+    """Automatically create rules for UPI IDs found in transactions"""
+    # Get all transactions
+    transactions = Transaction.query.all()
+    
+    # UPI pattern: looks for UPI IDs in format "xxxxx@yyyy"
+    upi_pattern = r'UPI/[^/]*/[^/]*/([^@/]+@[^/]+)/'
+    
+    existing_upi_rules = set()
+    # Get existing UPI rules to avoid duplicates
+    existing_rules = Rule.query.filter(Rule.name.like('%@%')).all()
+    for rule in existing_rules:
+        existing_upi_rules.add(rule.name.lower())
+    
+    new_upi_ids = set()
+    
+    # Scan all transactions for UPI IDs
+    for transaction in transactions:
+        matches = re.findall(upi_pattern, transaction.narration, re.IGNORECASE)
+        for upi_id in matches:
+            upi_id_clean = upi_id.strip().lower()
+            if upi_id_clean and upi_id_clean not in existing_upi_rules:
+                new_upi_ids.add(upi_id_clean)
+    
+    # Create rules for new UPI IDs
+    for upi_id in new_upi_ids:
+        try:
+            # Create a regex pattern that matches this specific UPI ID
+            escaped_upi = re.escape(upi_id)
+            regex_pattern = f'UPI/[^/]*/[^/]*/{escaped_upi}/'
+            
+            # Create the rule
+            rule = Rule(
+                name=upi_id,
+                regex_pattern=regex_pattern,
+                priority=5
+            )
+            db.session.add(rule)
+            existing_upi_rules.add(upi_id)
+            
+        except Exception as e:
+            # Skip if there's any error creating the rule
+            continue
+    
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
