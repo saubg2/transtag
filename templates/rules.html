@@ -87,33 +87,22 @@
                 <h5 class="mb-0"><i class="fas fa-link me-2"></i>Combine Rules</h5>
             </div>
             <div class="card-body">
-                <p class="mb-3">Select two rules to combine them with OR logic into a new rule.</p>
-                <form method="POST" action="{{ url_for('combine_rules') }}">
+                <div class="alert alert-info d-none" id="selection-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <span id="selection-text">Select exactly 2 rules from the table below to combine them.</span>
+                </div>
+                
+                <form method="POST" action="{{ url_for('combine_rules') }}" id="combine-form">
+                    <input type="hidden" id="rule1_id" name="rule1_id">
+                    <input type="hidden" id="rule2_id" name="rule2_id">
+                    
                     <div class="row">
-                        <div class="col-md-3 mb-3">
-                            <label for="rule1_id" class="form-label">First Rule</label>
-                            <select class="form-select" id="rule1_id" name="rule1_id" required>
-                                <option value="">Select first rule...</option>
-                                {% for item in rules_with_counts %}
-                                <option value="{{ item.rule.id }}">{{ item.rule.name }} ({{ item.match_count }} matches)</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-md-3 mb-3">
-                            <label for="rule2_id" class="form-label">Second Rule</label>
-                            <select class="form-select" id="rule2_id" name="rule2_id" required>
-                                <option value="">Select second rule...</option>
-                                {% for item in rules_with_counts %}
-                                <option value="{{ item.rule.id }}">{{ item.rule.name }} ({{ item.match_count }} matches)</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-md-4 mb-3">
+                        <div class="col-md-8 mb-3">
                             <label for="combined_name" class="form-label">Combined Rule Name</label>
                             <input type="text" class="form-control" id="combined_name" name="combined_name" 
                                    placeholder="e.g., Food & Groceries" required maxlength="100">
                         </div>
-                        <div class="col-md-2 mb-3">
+                        <div class="col-md-4 mb-3">
                             <label for="combined_priority" class="form-label">Priority</label>
                             <select class="form-select" id="combined_priority" name="combined_priority" required>
                                 <option value="1">1 (Highest)</option>
@@ -129,15 +118,19 @@
                             </select>
                         </div>
                     </div>
-                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                        <button type="submit" class="btn btn-success">
-                            <i class="fas fa-link me-1"></i>Combine Rules
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-between">
+                        <div id="selected-rules" class="text-muted">
+                            <small>Select 2 rules from the table below to combine</small>
+                        </div>
+                        <button type="submit" class="btn btn-success" id="combine-btn" disabled>
+                            <i class="fas fa-link me-1"></i>Combine Selected Rules
                         </button>
                     </div>
                 </form>
                 <small class="text-muted">
                     <i class="fas fa-info-circle me-1"></i>
-                    Combining creates a new rule that matches when either rule would match (OR logic).
+                    Combining creates a new rule that matches when either selected rule would match (OR logic).
                 </small>
             </div>
         </div>
@@ -154,9 +147,10 @@
                         <table class="table table-striped">
                             <thead>
                                 <tr>
+                                    <th width="5%">Select</th>
                                     <th width="5%">Priority</th>
                                     <th width="20%">Rule Name</th>
-                                    <th width="35%">Regex Pattern</th>
+                                    <th width="30%">Regex Pattern</th>
                                     <th width="10%">Matches</th>
                                     <th width="15%">Created</th>
                                     <th width="15%">Actions</th>
@@ -165,6 +159,12 @@
                             <tbody>
                                 {% for item in rules_with_counts %}
                                 <tr>
+                                    <td>
+                                        <input type="checkbox" class="form-check-input rule-select" 
+                                               value="{{ item.rule.id }}" 
+                                               data-rule-name="{{ item.rule.name }}"
+                                               data-match-count="{{ item.match_count }}">
+                                    </td>
                                     <td>
                                         <span class="badge {% if item.rule.priority <= 3 %}bg-danger{% elif item.rule.priority <= 6 %}bg-warning{% else %}bg-secondary{% endif %}">
                                             {{ item.rule.priority }}
@@ -237,49 +237,71 @@
 </div>
 
 <script>
-// Prevent selecting the same rule twice in combination form
+// Handle rule selection for combination
 document.addEventListener('DOMContentLoaded', function() {
-    const rule1Select = document.getElementById('rule1_id');
-    const rule2Select = document.getElementById('rule2_id');
+    const checkboxes = document.querySelectorAll('.rule-select');
+    const selectedRulesDiv = document.getElementById('selected-rules');
+    const combineBtn = document.getElementById('combine-btn');
+    const rule1Input = document.getElementById('rule1_id');
+    const rule2Input = document.getElementById('rule2_id');
+    const combinedNameInput = document.getElementById('combined_name');
     
-    function updateRuleOptions() {
-        const selectedRule1 = rule1Select.value;
-        const selectedRule2 = rule2Select.value;
+    function updateSelection() {
+        const selected = Array.from(checkboxes).filter(cb => cb.checked);
         
-        // Update rule2 options based on rule1 selection
-        Array.from(rule2Select.options).forEach(option => {
-            if (option.value === selectedRule1 && option.value !== '') {
-                option.disabled = true;
-                option.style.display = 'none';
-            } else {
-                option.disabled = false;
-                option.style.display = 'block';
+        if (selected.length === 0) {
+            selectedRulesDiv.innerHTML = '<small class="text-muted">Select 2 rules from the table below to combine</small>';
+            combineBtn.disabled = true;
+            rule1Input.value = '';
+            rule2Input.value = '';
+        } else if (selected.length === 1) {
+            const ruleName = selected[0].getAttribute('data-rule-name');
+            const matchCount = selected[0].getAttribute('data-match-count');
+            selectedRulesDiv.innerHTML = `<small class="text-info">Selected: <strong>${ruleName}</strong> (${matchCount} matches) - Select 1 more rule</small>`;
+            combineBtn.disabled = true;
+            rule1Input.value = selected[0].value;
+            rule2Input.value = '';
+        } else if (selected.length === 2) {
+            const rule1Name = selected[0].getAttribute('data-rule-name');
+            const rule1Count = selected[0].getAttribute('data-match-count');
+            const rule2Name = selected[1].getAttribute('data-rule-name');
+            const rule2Count = selected[1].getAttribute('data-match-count');
+            
+            selectedRulesDiv.innerHTML = `<small class="text-success">
+                Selected: <strong>${rule1Name}</strong> (${rule1Count} matches) + <strong>${rule2Name}</strong> (${rule2Count} matches)
+            </small>`;
+            combineBtn.disabled = false;
+            rule1Input.value = selected[0].value;
+            rule2Input.value = selected[1].value;
+            
+            // Auto-suggest combined name
+            if (!combinedNameInput.value) {
+                combinedNameInput.value = `${rule1Name} + ${rule2Name}`;
             }
-        });
-        
-        // Update rule1 options based on rule2 selection
-        Array.from(rule1Select.options).forEach(option => {
-            if (option.value === selectedRule2 && option.value !== '') {
-                option.disabled = true;
-                option.style.display = 'none';
-            } else {
-                option.disabled = false;
-                option.style.display = 'block';
-            }
-        });
-        
-        // Reset if same rule selected
-        if (selectedRule1 === selectedRule2 && selectedRule1 !== '') {
-            if (event.target === rule1Select) {
-                rule2Select.value = '';
-            } else {
-                rule1Select.value = '';
-            }
+        } else {
+            // More than 2 selected - disable extras
+            selected.slice(2).forEach(cb => cb.checked = false);
+            updateSelection(); // Recursively call to handle the corrected selection
+            return;
         }
     }
     
-    rule1Select.addEventListener('change', updateRuleOptions);
-    rule2Select.addEventListener('change', updateRuleOptions);
+    // Add event listeners to all checkboxes
+    checkboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            // If more than 2 are selected, uncheck this one
+            const selected = Array.from(checkboxes).filter(cb => cb.checked);
+            if (selected.length > 2) {
+                this.checked = false;
+                alert('You can only select 2 rules to combine');
+                return;
+            }
+            updateSelection();
+        });
+    });
+    
+    // Initial update
+    updateSelection();
 });
 </script>
 {% endblock %}

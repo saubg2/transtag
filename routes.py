@@ -387,7 +387,7 @@ def auto_create_upi_rules():
                 # PayTM QR format
                 regex_pattern = f'UPI/{escaped_upi}/NA/'
             else:
-                # Generic UPI format
+                # Generic UPI format (no double UPI)
                 regex_pattern = f'UPI/{escaped_upi}/'
             
             # Create the rule
