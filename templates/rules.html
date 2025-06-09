@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Rules - Transaction Tagging App{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-10 offset-md-1">
+        <div class="d-flex align-items-center mb-4">
+            <i class="fas fa-cogs fa-2x text-success me-3"></i>
+            <div>
+                <h2 class="mb-0">Manage Tagging Rules</h2>
+                <p class="text-muted mb-0">Create regex patterns to automatically categorize transactions</p>
+            </div>
+        </div>
+
+        <!-- Create New Rule Form -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-plus me-2"></i>Create New Rule</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="name" class="form-label">Rule Name</label>
+                            <input type="text" class="form-control" id="name" name="name" 
+                                   placeholder="e.g., Grocery Stores" required maxlength="100">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="regex_pattern" class="form-label">Regex Pattern</label>
+                            <input type="text" class="form-control" id="regex_pattern" name="regex_pattern" 
+                                   placeholder="e.g., (grocery|supermarket|walmart)" required>
+                        </div>
+                        <div class="col-md-2 mb-3">
+                            <label for="priority" class="form-label">Priority</label>
+                            <select class="form-select" id="priority" name="priority" required>
+                                <option value="1">1 (Highest)</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                                <option value="4">4</option>
+                                <option value="5" selected>5 (Default)</option>
+                                <option value="6">6</option>
+                                <option value="7">7</option>
+                                <option value="8">8</option>
+                                <option value="9">9</option>
+                                <option value="10">10 (Lowest)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-plus me-1"></i>Create Rule
+                        </button>
+                    </div>
+                </form>
+                <div class="mt-3">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Rules with priority 1 are applied first. Use regex patterns to match transaction narrations (case-insensitive).
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Existing Rules -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-list me-2"></i>Existing Rules ({{ rules|length }})</h5>
+            </div>
+            <div class="card-body">
+                {% if rules %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th width="5%">Priority</th>
+                                    <th width="25%">Rule Name</th>
+                                    <th width="50%">Regex Pattern</th>
+                                    <th width="15%">Created</th>
+                                    <th width="5%">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for rule in rules %}
+                                <tr>
+                                    <td>
+                                        <span class="badge {% if rule.priority <= 3 %}bg-danger{% elif rule.priority <= 6 %}bg-warning{% else %}bg-secondary{% endif %}">
+                                            {{ rule.priority }}
+                                        </span>
+                                    </td>
+                                    <td><strong>{{ rule.name }}</strong></td>
+                                    <td><code>{{ rule.regex_pattern }}</code></td>
+                                    <td>{{ rule.created_at.strftime('%Y-%m-%d') }}</td>
+                                    <td>
+                                        <form method="POST" action="{{ url_for('delete_rule', rule_id=rule.id) }}" 
+                                              onsubmit="return confirm('Are you sure you want to delete this rule?')" class="d-inline">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete Rule">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                        <h5>No Rules Created Yet</h5>
+                        <p class="text-muted">Create your first rule using the form above to start categorizing transactions.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Regex Examples -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="fas fa-lightbulb me-2"></i>Regex Pattern Examples</h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Common Patterns:</h6>
+                        <ul class="list-unstyled">
+                            <li><code>(grocery|supermarket|walmart)</code> - Grocery stores</li>
+                            <li><code>^ATM.*</code> - ATM transactions</li>
+                            <li><code>.*amazon.*</code> - Amazon purchases</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Advanced Patterns:</h6>
+                        <ul class="list-unstyled">
+                            <li><code>\bmcdonald[s']?\b</code> - McDonald's (exact word)</li>
+                            <li><code>^TRANSFER.*TO\s+\w+</code> - Money transfers</li>
+                            <li><code>\$\d+\.\d{2}</code> - Dollar amounts</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Upload CSV - Transaction Tagging App{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 offset-md-2">
+        <div class="d-flex align-items-center mb-4">
+            <i class="fas fa-upload fa-2x text-primary me-3"></i>
+            <div>
+                <h2 class="mb-0">Upload Bank Statement</h2>
+                <p class="text-muted mb-0">Upload a CSV file with transaction narrations</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data">
+                    <div class="mb-4">
+                        <label for="file" class="form-label">
+                            <i class="fas fa-file-csv me-1"></i>Select CSV File
+                        </label>
+                        <input type="file" class="form-control" id="file" name="file" accept=".csv" required>
+                        <div class="form-text">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Upload a CSV file with transaction narrations in the first column. 
+                            Any existing transactions will be replaced.
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('index') }}" class="btn btn-secondary me-md-2">
+                            <i class="fas fa-arrow-left me-1"></i>Back to Home
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-upload me-1"></i>Upload CSV
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- CSV Format Example -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="fas fa-lightbulb me-2"></i>CSV Format Example</h6>
+            </div>
+            <div class="card-body">
+                <p class="mb-2">Your CSV should have transaction narrations in the first column:</p>
+                <pre class="bg-dark p-3 rounded"><code>PAYMENT TO GROCERY STORE ABC
+ATM WITHDRAWAL MAIN STREET
+SALARY DEPOSIT FROM COMPANY XYZ
+ONLINE PURCHASE AMAZON.COM
+BANK TRANSFER TO JOHN DOE</code></pre>
+                <small class="text-muted">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    Only the first column will be used as the transaction narration.
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

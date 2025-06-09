@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}Home - Transaction Tagging App{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 offset-md-2">
+        <div class="text-center mb-5">
+            <h1 class="display-4">
+                <i class="fas fa-tags text-primary me-3"></i>
+                Transaction Tagging App
+            </h1>
+            <p class="lead text-muted">Automatically categorize your bank transactions using regex rules</p>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="row mb-5">
+            <div class="col-md-6">
+                <div class="card bg-primary">
+                    <div class="card-body text-center">
+                        <i class="fas fa-file-csv fa-2x mb-2"></i>
+                        <h5 class="card-title">Transactions</h5>
+                        <h2 class="card-text">{{ transaction_count }}</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card bg-success">
+                    <div class="card-body text-center">
+                        <i class="fas fa-cogs fa-2x mb-2"></i>
+                        <h5 class="card-title">Active Rules</h5>
+                        <h2 class="card-text">{{ rule_count }}</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Cards -->
+        <div class="row">
+            <div class="col-md-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-upload fa-3x text-primary mb-3"></i>
+                        <h5 class="card-title">Step 1: Upload CSV</h5>
+                        <p class="card-text">Upload your bank statement CSV file with transaction narrations.</p>
+                        <a href="{{ url_for('upload_csv') }}" class="btn btn-primary">
+                            <i class="fas fa-upload me-1"></i>Upload CSV
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-cogs fa-3x text-success mb-3"></i>
+                        <h5 class="card-title">Step 2: Create Rules</h5>
+                        <p class="card-text">Define regex patterns to automatically categorize transactions.</p>
+                        <a href="{{ url_for('manage_rules') }}" class="btn btn-success">
+                            <i class="fas fa-cogs me-1"></i>Manage Rules
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-table fa-3x text-info mb-3"></i>
+                        <h5 class="card-title">Step 3: View Results</h5>
+                        <p class="card-text">See your transactions with applied tags and download results.</p>
+                        <a href="{{ url_for('view_transactions') }}" class="btn btn-info">
+                            <i class="fas fa-table me-1"></i>View Transactions
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Instructions -->
+        <div class="card mt-5">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>How it works</h5>
+            </div>
+            <div class="card-body">
+                <ol class="mb-0">
+                    <li><strong>Upload CSV:</strong> Upload a single-column CSV file containing transaction narrations</li>
+                    <li><strong>Create Rules:</strong> Define regex patterns with names and priorities (1-10, where 1 is highest)</li>
+                    <li><strong>Auto-Tag:</strong> The system applies the highest priority matching rule to each transaction</li>
+                    <li><strong>Download:</strong> Export your tagged transactions as a CSV file</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
