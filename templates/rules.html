@@ -94,10 +94,10 @@
                             <thead>
                                 <tr>
                                     <th width="5%">Priority</th>
-                                    <th width="25%">Rule Name</th>
-                                    <th width="50%">Regex Pattern</th>
+                                    <th width="20%">Rule Name</th>
+                                    <th width="45%">Regex Pattern</th>
                                     <th width="15%">Created</th>
-                                    <th width="5%">Actions</th>
+                                    <th width="15%">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -112,12 +112,18 @@
                                     <td><code>{{ rule.regex_pattern }}</code></td>
                                     <td>{{ rule.created_at.strftime('%Y-%m-%d') }}</td>
                                     <td>
-                                        <form method="POST" action="{{ url_for('delete_rule', rule_id=rule.id) }}" 
-                                              onsubmit="return confirm('Are you sure you want to delete this rule?')" class="d-inline">
-                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete Rule">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
-                                        </form>
+                                        <div class="btn-group" role="group">
+                                            <a href="{{ url_for('edit_rule', rule_id=rule.id) }}" 
+                                               class="btn btn-sm btn-outline-warning" title="Edit Rule">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <form method="POST" action="{{ url_for('delete_rule', rule_id=rule.id) }}" 
+                                                  onsubmit="return confirm('Are you sure you want to delete this rule?')" class="d-inline">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete Rule">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </form>
+                                        </div>
                                     </td>
                                 </tr>
                                 {% endfor %}

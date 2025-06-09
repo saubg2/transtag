@@ -108,6 +108,53 @@ def manage_rules():
     rules = Rule.query.order_by(Rule.priority.asc(), Rule.created_at.asc()).all()
     return render_template('rules.html', rules=rules)
 
+@app.route('/rules/edit/<int:rule_id>', methods=['GET', 'POST'])
+def edit_rule(rule_id):
+    """Edit an existing rule"""
+    rule = Rule.query.get_or_404(rule_id)
+    
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip()
+        regex_pattern = request.form.get('regex_pattern', '').strip()
+        priority = request.form.get('priority', 5, type=int)
+        
+        # Validation
+        if not name:
+            flash('Rule name is required', 'error')
+            return redirect(request.url)
+        
+        if not regex_pattern:
+            flash('Regex pattern is required', 'error')
+            return redirect(request.url)
+        
+        if priority < 1 or priority > 10:
+            flash('Priority must be between 1 and 10', 'error')
+            return redirect(request.url)
+        
+        # Check if name already exists (excluding current rule)
+        existing_rule = Rule.query.filter(Rule.name == name, Rule.id != rule_id).first()
+        if existing_rule:
+            flash('Rule name already exists', 'error')
+            return redirect(request.url)
+        
+        # Validate regex pattern
+        try:
+            re.compile(regex_pattern)
+        except re.error as e:
+            flash(f'Invalid regex pattern: {str(e)}', 'error')
+            return redirect(request.url)
+        
+        # Update rule
+        rule.name = name
+        rule.regex_pattern = regex_pattern
+        rule.priority = priority
+        db.session.commit()
+        flash(f'Rule "{name}" updated successfully', 'success')
+        return redirect(url_for('manage_rules'))
+    
+    # GET request - show edit form
+    return render_template('edit_rule.html', rule=rule)
+
 @app.route('/rules/delete/<int:rule_id>', methods=['POST'])
 def delete_rule(rule_id):
     """Delete a rule"""
@@ -209,31 +256,60 @@ def auto_create_upi_rules():
     # Get all transactions
     transactions = Transaction.query.all()
     
-    # UPI pattern: looks for UPI IDs in format "xxxxx@yyyy"
-    upi_pattern = r'UPI/[^/]*/[^/]*/([^@/]+@[^/]+)/'
+    # Multiple UPI patterns to cover different formats:
+    # Pattern 1: UPI/xxx/UPI/upiid@bank/bank/xxx (traditional format)
+    # Pattern 2: UPI/upiid/NA/bank/xxx/xxx (paytm QR format)  
+    # Pattern 3: UPI/upiid/xxx/bank/xxx/xxx (apple services format)
+    upi_patterns = [
+        r'UPI/[^/]*/UPI/([^@/]+@[^/]+)/',  # Traditional: swiggystores@ic
+        r'UPI/([^/]+)/NA/',                # PayTM QR: paytmqr28100505
+        r'UPI/([^/]+\.b)/',               # Apple services: appleservices.b
+        r'UPI/([^/]+)/MandateRequest/'    # Apple mandate: appleservices.b
+    ]
     
     existing_upi_rules = set()
-    # Get existing UPI rules to avoid duplicates
-    existing_rules = Rule.query.filter(Rule.name.like('%@%')).all()
+    # Get existing UPI rules to avoid duplicates (check for @ symbol or common UPI patterns)
+    existing_rules = Rule.query.filter(
+        db.or_(
+            Rule.name.like('%@%'),
+            Rule.name.like('paytmqr%'),
+            Rule.name.like('%.b'),
+            Rule.name.like('%services%')
+        )
+    ).all()
     for rule in existing_rules:
         existing_upi_rules.add(rule.name.lower())
     
     new_upi_ids = set()
     
-    # Scan all transactions for UPI IDs
+    # Scan all transactions for UPI IDs using all patterns
     for transaction in transactions:
-        matches = re.findall(upi_pattern, transaction.narration, re.IGNORECASE)
-        for upi_id in matches:
-            upi_id_clean = upi_id.strip().lower()
-            if upi_id_clean and upi_id_clean not in existing_upi_rules:
-                new_upi_ids.add(upi_id_clean)
+        for pattern in upi_patterns:
+            matches = re.findall(pattern, transaction.narration, re.IGNORECASE)
+            for upi_id in matches:
+                upi_id_clean = upi_id.strip().lower()
+                if upi_id_clean and upi_id_clean not in existing_upi_rules and len(upi_id_clean) > 2:
+                    new_upi_ids.add(upi_id_clean)
     
     # Create rules for new UPI IDs
     for upi_id in new_upi_ids:
         try:
             # Create a regex pattern that matches this specific UPI ID
             escaped_upi = re.escape(upi_id)
-            regex_pattern = f'UPI/[^/]*/[^/]*/{escaped_upi}/'
+            
+            # Choose appropriate pattern based on UPI ID format
+            if '@' in upi_id:
+                # Traditional UPI ID with @
+                regex_pattern = f'UPI/[^/]*/UPI/{escaped_upi}/'
+            elif upi_id.endswith('.b'):
+                # Apple services format
+                regex_pattern = f'UPI/{escaped_upi}/'
+            elif upi_id.startswith('paytmqr'):
+                # PayTM QR format
+                regex_pattern = f'UPI/{escaped_upi}/NA/'
+            else:
+                # Generic UPI format
+                regex_pattern = f'UPI/{escaped_upi}/'
             
             # Create the rule
             rule = Rule(
