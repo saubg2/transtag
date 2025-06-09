@@ -104,9 +104,28 @@ def manage_rules():
         flash(f'Rule "{name}" created successfully', 'success')
         return redirect(request.url)
     
-    # Get all rules ordered by priority
+    # Get all rules ordered by priority with match counts
     rules = Rule.query.order_by(Rule.priority.asc(), Rule.created_at.asc()).all()
-    return render_template('rules.html', rules=rules)
+    
+    # Calculate match counts for each rule
+    rules_with_counts = []
+    transactions = Transaction.query.all()
+    
+    for rule in rules:
+        match_count = 0
+        for transaction in transactions:
+            try:
+                if re.search(rule.regex_pattern, transaction.narration, re.IGNORECASE):
+                    match_count += 1
+            except re.error:
+                continue
+        
+        rules_with_counts.append({
+            'rule': rule,
+            'match_count': match_count
+        })
+    
+    return render_template('rules.html', rules_with_counts=rules_with_counts)
 
 @app.route('/rules/edit/<int:rule_id>', methods=['GET', 'POST'])
 def edit_rule(rule_id):
@@ -196,6 +215,65 @@ def manual_create_upi_rules():
             flash('No new UPI IDs found to create rules for', 'info')
     except Exception as e:
         flash(f'Error creating UPI rules: {str(e)}', 'error')
+    
+    return redirect(url_for('manage_rules'))
+
+@app.route('/rules/combine', methods=['POST'])
+def combine_rules():
+    """Combine two rules with OR logic"""
+    rule1_id = request.form.get('rule1_id', type=int)
+    rule2_id = request.form.get('rule2_id', type=int)
+    combined_name = request.form.get('combined_name', '').strip()
+    combined_priority = request.form.get('combined_priority', 5, type=int)
+    
+    # Validation
+    if not rule1_id or not rule2_id:
+        flash('Please select two rules to combine', 'error')
+        return redirect(url_for('manage_rules'))
+    
+    if rule1_id == rule2_id:
+        flash('Cannot combine a rule with itself', 'error')
+        return redirect(url_for('manage_rules'))
+    
+    if not combined_name:
+        flash('Combined rule name is required', 'error')
+        return redirect(url_for('manage_rules'))
+    
+    if combined_priority < 1 or combined_priority > 10:
+        flash('Priority must be between 1 and 10', 'error')
+        return redirect(url_for('manage_rules'))
+    
+    # Check if name already exists
+    if Rule.query.filter_by(name=combined_name).first():
+        flash('Combined rule name already exists', 'error')
+        return redirect(url_for('manage_rules'))
+    
+    # Get the rules
+    rule1 = Rule.query.get_or_404(rule1_id)
+    rule2 = Rule.query.get_or_404(rule2_id)
+    
+    try:
+        # Create combined regex pattern with OR logic
+        combined_pattern = f'({rule1.regex_pattern})|({rule2.regex_pattern})'
+        
+        # Validate the combined pattern
+        re.compile(combined_pattern)
+        
+        # Create new combined rule
+        combined_rule = Rule(
+            name=combined_name,
+            regex_pattern=combined_pattern,
+            priority=combined_priority
+        )
+        db.session.add(combined_rule)
+        db.session.commit()
+        
+        flash(f'Combined rule "{combined_name}" created successfully', 'success')
+        
+    except re.error as e:
+        flash(f'Error creating combined pattern: {str(e)}', 'error')
+    except Exception as e:
+        flash(f'Error combining rules: {str(e)}', 'error')
     
     return redirect(url_for('manage_rules'))
 
