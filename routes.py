@@ -418,13 +418,16 @@ def auto_create_upi_rules():
     new_upi_ids = set()
     
     # Scan all transactions for UPI IDs using all patterns
+    # Store UPI ID with the pattern that found it
+    upi_id_patterns = {}
     for transaction in transactions:
-        for pattern in upi_patterns:
+        for i, pattern in enumerate(upi_patterns):
             matches = re.findall(pattern, transaction.narration, re.IGNORECASE)
             for upi_id in matches:
                 upi_id_clean = upi_id.strip().lower()
                 if upi_id_clean and upi_id_clean not in existing_upi_rules and len(upi_id_clean) > 2:
                     new_upi_ids.add(upi_id_clean)
+                    upi_id_patterns[upi_id_clean] = i  # Store which pattern found this UPI ID
     
     # Create rules for new UPI IDs
     for upi_id in new_upi_ids:
@@ -432,18 +435,23 @@ def auto_create_upi_rules():
             # Create a regex pattern that matches this specific UPI ID
             escaped_upi = re.escape(upi_id)
             
-            # Choose appropriate pattern based on UPI ID format
-            if '@' in upi_id:
-                # Traditional UPI ID with @
+            # Generate pattern based on which extraction pattern found this UPI ID
+            pattern_index = upi_id_patterns.get(upi_id, 0)
+            
+            if pattern_index == 0:
+                # Traditional format: UPI/xxx/UPI/upiid@bank/
                 regex_pattern = f'UPI/[^/]*/UPI/{escaped_upi}/'
-            elif upi_id.endswith('.b'):
-                # Apple services format
-                regex_pattern = f'UPI/{escaped_upi}/'
-            elif upi_id.startswith('paytmqr'):
-                # PayTM QR format
+            elif pattern_index == 1:
+                # PayTM format: UPI/upiid/NA/
                 regex_pattern = f'UPI/{escaped_upi}/NA/'
+            elif pattern_index == 2:
+                # Apple services format: UPI/upiid.b/
+                regex_pattern = f'UPI/{escaped_upi}/'
+            elif pattern_index == 3:
+                # Apple mandate format: UPI/upiid/MandateRequest/
+                regex_pattern = f'UPI/{escaped_upi}/MandateRequest/'
             else:
-                # Generic UPI format (no double UPI)
+                # Fallback: generic format
                 regex_pattern = f'UPI/{escaped_upi}/'
             
             # Create the rule
