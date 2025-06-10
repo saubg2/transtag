@@ -47,6 +47,17 @@
                             </select>
                         </div>
                     </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="is_standard_tag" name="is_standard_tag" value="1">
+                                <label class="form-check-label" for="is_standard_tag">
+                                    <strong>Mark as Standard Tag</strong>
+                                    <small class="text-muted d-block">Standard tags can be shared across users</small>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
                     <div class="d-grid gap-2 d-md-flex justify-content-md-end">
                         <button type="submit" class="btn btn-success">
                             <i class="fas fa-plus me-1"></i>Create Rule
@@ -89,13 +100,18 @@
             <div class="card-body">
                 <!-- Action buttons -->
                 <div class="row mb-3">
-                    <div class="col-md-6">
+                    <div class="col-md-4">
                         <button type="button" class="btn btn-danger" id="delete-selected-btn" disabled onclick="deleteSelectedRules()">
                             <i class="fas fa-trash me-1"></i>Delete Selected Rules
                         </button>
                     </div>
-                    <div class="col-md-6 text-end">
-                        <button type="button" class="btn btn-success" id="combine-selected-btn" disabled onclick="showCombineForm()">
+                    <div class="col-md-4 text-center">
+                        <a href="{{ url_for('download_rules') }}" class="btn btn-success">
+                            <i class="fas fa-download me-1"></i>Download Rules
+                        </a>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <button type="button" class="btn btn-warning" id="combine-selected-btn" disabled onclick="showCombineForm()">
                             <i class="fas fa-link me-1"></i>Combine Selected Rules
                         </button>
                     </div>
@@ -171,10 +187,11 @@
                                         <input type="checkbox" class="form-check-input" id="select-all">
                                     </th>
                                     <th width="5%">Priority</th>
-                                    <th width="20%">Rule Name</th>
-                                    <th width="30%">Regex Pattern</th>
+                                    <th width="18%">Rule Name</th>
+                                    <th width="25%">Regex Pattern</th>
+                                    <th width="8%">Type</th>
                                     <th width="10%">Matches</th>
-                                    <th width="15%">Created</th>
+                                    <th width="12%">Created</th>
                                     <th width="15%">Actions</th>
                                 </tr>
                             </thead>
@@ -195,9 +212,24 @@
                                     <td><strong>{{ item.rule.name }}</strong></td>
                                     <td><code>{{ item.rule.regex_pattern }}</code></td>
                                     <td>
-                                        <span class="badge {% if item.match_count > 0 %}bg-success{% else %}bg-secondary{% endif %}">
-                                            {{ item.match_count }}
+                                        {% if item.rule.is_standard_tag %}
+                                        <span class="badge bg-info" title="Standard Tag">
+                                            <i class="fas fa-star"></i> Standard
                                         </span>
+                                        {% else %}
+                                        <span class="badge bg-light text-dark" title="Custom Tag">Custom</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if item.match_count > 0 %}
+                                        <a href="{{ url_for('view_transactions', rule=item.rule.name) }}" 
+                                           class="badge bg-success text-decoration-none" 
+                                           title="Click to view {{ item.match_count }} matching transactions">
+                                            {{ item.match_count }}
+                                        </a>
+                                        {% else %}
+                                        <span class="badge bg-secondary">0</span>
+                                        {% endif %}
                                     </td>
                                     <td>{{ item.rule.created_at.strftime('%Y-%m-%d') }}</td>
                                     <td>
