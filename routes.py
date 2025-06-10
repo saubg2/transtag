@@ -98,7 +98,8 @@ def manage_rules():
             return redirect(request.url)
         
         # Create new rule
-        rule = Rule(name=name, regex_pattern=regex_pattern, priority=priority)
+        is_standard_tag = bool(request.form.get('is_standard_tag'))
+        rule = Rule(name=name, regex_pattern=regex_pattern, priority=priority, is_standard_tag=is_standard_tag)
         db.session.add(rule)
         db.session.commit()
         flash(f'Rule "{name}" created successfully', 'success')
@@ -167,6 +168,7 @@ def edit_rule(rule_id):
         rule.name = name
         rule.regex_pattern = regex_pattern
         rule.priority = priority
+        rule.is_standard_tag = bool(request.form.get('is_standard_tag'))
         db.session.commit()
         flash(f'Rule "{name}" updated successfully', 'success')
         return redirect(url_for('manage_rules'))
@@ -196,9 +198,34 @@ def view_transactions():
     # Apply rules to transactions (includes auto-creating UPI rules)
     apply_rules_to_transactions()
     
-    # Get all transactions ordered by serial number
-    transactions = Transaction.query.order_by(Transaction.serial_number.asc()).all()
-    return render_template('transactions.html', transactions=transactions)
+    # Get filter parameters
+    show_untagged_only = request.args.get('untagged') == '1'
+    rule_filter = request.args.get('rule')
+    
+    # Start with base query
+    query = Transaction.query
+    
+    # Apply filters
+    if show_untagged_only:
+        query = query.filter(Transaction.rule_applied.is_(None))
+    
+    if rule_filter:
+        query = query.filter(Transaction.rule_applied == rule_filter)
+    
+    # Get filtered transactions ordered by serial number
+    transactions = query.order_by(Transaction.serial_number.asc()).all()
+    
+    # Get all unique rule names for filter dropdown
+    rule_names = db.session.query(Transaction.rule_applied).filter(
+        Transaction.rule_applied.isnot(None)
+    ).distinct().all()
+    rule_names = [r[0] for r in rule_names if r[0]]
+    
+    return render_template('transactions.html', 
+                         transactions=transactions,
+                         rule_names=rule_names,
+                         current_rule_filter=rule_filter,
+                         show_untagged_only=show_untagged_only)
 
 @app.route('/auto-create-upi-rules', methods=['POST'])
 def manual_create_upi_rules():
@@ -354,6 +381,35 @@ def download_transactions():
     response = make_response(output.getvalue())
     response.headers['Content-Type'] = 'text/csv'
     response.headers['Content-Disposition'] = 'attachment; filename=transactions_with_rules.csv'
+    return response
+
+@app.route('/download_rules')
+def download_rules():
+    """Download all rules as CSV"""
+    rules = Rule.query.order_by(Rule.priority.asc(), Rule.created_at.asc()).all()
+    
+    # Create CSV content
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Write header
+    writer.writerow(['Rule Name', 'Regex Pattern', 'Priority', 'Standard Tag', 'Created Date'])
+    
+    # Write rule data
+    for rule in rules:
+        writer.writerow([
+            rule.name,
+            rule.regex_pattern,
+            rule.priority,
+            'Yes' if rule.is_standard_tag else 'No',
+            rule.created_at.strftime('%Y-%m-%d %H:%M:%S')
+        ])
+    
+    # Create response
+    response = make_response(output.getvalue())
+    response.headers['Content-Type'] = 'text/csv'
+    response.headers['Content-Disposition'] = 'attachment; filename=rules.csv'
+    
     return response
 
 def apply_rules_to_transactions():

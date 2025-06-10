@@ -19,6 +19,7 @@ class Rule(db.Model):
     name = db.Column(db.String(100), nullable=False, unique=True)
     regex_pattern = db.Column(db.Text, nullable=False)
     priority = db.Column(db.Integer, nullable=False, default=5)
+    is_standard_tag = db.Column(db.Boolean, nullable=False, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     def __repr__(self):
