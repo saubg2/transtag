@@ -115,7 +115,7 @@ def manage_rules():
         match_count = 0
         for transaction in transactions:
             try:
-                if re.search(rule.regex_pattern, transaction.narration, re.IGNORECASE):
+                if re.search(rule.regex_pattern.lower(), transaction.narration.lower()):
                     match_count += 1
             except re.error:
                 continue
@@ -375,7 +375,7 @@ def apply_rules_to_transactions():
         # Apply first matching rule (highest priority wins)
         for rule in rules:
             try:
-                if re.search(rule.regex_pattern, transaction.narration, re.IGNORECASE):
+                if re.search(rule.regex_pattern.lower(), transaction.narration.lower()):
                     transaction.rule_applied = rule.name
                     transaction.rule_id = rule.id
                     break  # Stop at first match due to priority
