@@ -55,7 +55,7 @@
             <div class="card">
                 <div class="card-body">
                     <div class="table-responsive">
-                        <table class="table table-striped table-hover">
+                        <table class="table table-striped table-hover" id="transactions-table">
                             <thead>
                                 <tr>
                                     <th width="8%">Serial #</th>
@@ -126,9 +126,27 @@
 
 {% if transactions %}
 <script>
-// Auto-refresh tags when page loads
-document.addEventListener('DOMContentLoaded', function() {
-    // Optional: Add any JavaScript functionality here
+// Initialize DataTable for transactions
+$(document).ready(function() {
+    $('#transactions-table').DataTable({
+        order: [[0, 'asc']], // Sort by serial number by default
+        pageLength: 50,
+        columnDefs: [
+            { orderable: false, targets: [3] }, // Disable sorting for status icons
+            { searchable: false, targets: [3] }  // Disable search for status icons
+        ],
+        language: {
+            search: "Filter transactions:",
+            lengthMenu: "Show _MENU_ transactions per page",
+            info: "Showing _START_ to _END_ of _TOTAL_ transactions",
+            paginate: {
+                first: "First",
+                last: "Last",
+                next: "Next",
+                previous: "Previous"
+            }
+        }
+    });
 });
 </script>
 {% endif %}

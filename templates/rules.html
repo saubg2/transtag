@@ -81,57 +81,77 @@
             </div>
         </div>
 
-        <!-- Rule Combination -->
+        <!-- Rule Actions -->
         <div class="card mb-4">
             <div class="card-header">
-                <h5 class="mb-0"><i class="fas fa-link me-2"></i>Combine Rules</h5>
+                <h5 class="mb-0"><i class="fas fa-cogs me-2"></i>Rule Actions</h5>
             </div>
             <div class="card-body">
-                <div class="alert alert-info d-none" id="selection-info">
-                    <i class="fas fa-info-circle me-2"></i>
-                    <span id="selection-text">Select exactly 2 rules from the table below to combine them.</span>
-                </div>
-                
-                <form method="POST" action="{{ url_for('combine_rules') }}" id="combine-form">
-                    <input type="hidden" id="rule1_id" name="rule1_id">
-                    <input type="hidden" id="rule2_id" name="rule2_id">
-                    
-                    <div class="row">
-                        <div class="col-md-8 mb-3">
-                            <label for="combined_name" class="form-label">Combined Rule Name</label>
-                            <input type="text" class="form-control" id="combined_name" name="combined_name" 
-                                   placeholder="e.g., Food & Groceries" required maxlength="100">
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label for="combined_priority" class="form-label">Priority</label>
-                            <select class="form-select" id="combined_priority" name="combined_priority" required>
-                                <option value="1">1 (Highest)</option>
-                                <option value="2">2</option>
-                                <option value="3">3</option>
-                                <option value="4">4</option>
-                                <option value="5" selected>5 (Default)</option>
-                                <option value="6">6</option>
-                                <option value="7">7</option>
-                                <option value="8">8</option>
-                                <option value="9">9</option>
-                                <option value="10">10 (Lowest)</option>
-                            </select>
-                        </div>
+                <!-- Action buttons -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <button type="button" class="btn btn-danger" id="delete-selected-btn" disabled onclick="deleteSelectedRules()">
+                            <i class="fas fa-trash me-1"></i>Delete Selected Rules
+                        </button>
                     </div>
-                    
-                    <div class="d-grid gap-2 d-md-flex justify-content-md-between">
-                        <div id="selected-rules" class="text-muted">
-                            <small>Select 2 rules from the table below to combine</small>
-                        </div>
-                        <button type="submit" class="btn btn-success" id="combine-btn" disabled>
+                    <div class="col-md-6 text-end">
+                        <button type="button" class="btn btn-success" id="combine-selected-btn" disabled onclick="showCombineForm()">
                             <i class="fas fa-link me-1"></i>Combine Selected Rules
                         </button>
                     </div>
-                </form>
-                <small class="text-muted">
-                    <i class="fas fa-info-circle me-1"></i>
-                    Combining creates a new rule that matches when either selected rule would match (OR logic).
-                </small>
+                </div>
+                
+                <!-- Selection info -->
+                <div id="selected-rules-info" class="text-muted">
+                    <small>Select rules from the table below to perform actions</small>
+                </div>
+                
+                <!-- Combine form (hidden by default) -->
+                <div id="combine-form-container" class="d-none mt-3">
+                    <hr>
+                    <h6>Combine Selected Rules</h6>
+                    <form method="POST" action="{{ url_for('combine_rules') }}" id="combine-form">
+                        <input type="hidden" id="rule_ids" name="rule_ids">
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="combined_name" class="form-label">Combined Rule Name</label>
+                                <input type="text" class="form-control" id="combined_name" name="combined_name" 
+                                       placeholder="e.g., Food & Groceries" required maxlength="100">
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="combined_priority" class="form-label">Priority</label>
+                                <select class="form-select" id="combined_priority" name="combined_priority" required>
+                                    <option value="1">1 (Highest)</option>
+                                    <option value="2">2</option>
+                                    <option value="3">3</option>
+                                    <option value="4">4</option>
+                                    <option value="5" selected>5 (Default)</option>
+                                    <option value="6">6</option>
+                                    <option value="7">7</option>
+                                    <option value="8">8</option>
+                                    <option value="9">9</option>
+                                    <option value="10">10 (Lowest)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <div class="form-check mt-4">
+                                    <input class="form-check-input" type="checkbox" id="delete_originals" name="delete_originals">
+                                    <label class="form-check-label" for="delete_originals">
+                                        Delete original rules
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="button" class="btn btn-secondary me-2" onclick="hideCombineForm()">Cancel</button>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-link me-1"></i>Create Combined Rule
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
 
@@ -144,10 +164,12 @@
             <div class="card-body">
                 {% if rules_with_counts %}
                     <div class="table-responsive">
-                        <table class="table table-striped">
+                        <table class="table table-striped" id="rules-table">
                             <thead>
                                 <tr>
-                                    <th width="5%">Select</th>
+                                    <th width="5%">
+                                        <input type="checkbox" class="form-check-input" id="select-all">
+                                    </th>
                                     <th width="5%">Priority</th>
                                     <th width="20%">Rule Name</th>
                                     <th width="30%">Regex Pattern</th>
@@ -237,71 +259,119 @@
 </div>
 
 <script>
-// Handle rule selection for combination
-document.addEventListener('DOMContentLoaded', function() {
-    const checkboxes = document.querySelectorAll('.rule-select');
-    const selectedRulesDiv = document.getElementById('selected-rules');
-    const combineBtn = document.getElementById('combine-btn');
-    const rule1Input = document.getElementById('rule1_id');
-    const rule2Input = document.getElementById('rule2_id');
-    const combinedNameInput = document.getElementById('combined_name');
-    
-    function updateSelection() {
-        const selected = Array.from(checkboxes).filter(cb => cb.checked);
+// Initialize DataTable and handle rule selection
+$(document).ready(function() {
+    // Initialize DataTable
+    const table = $('#rules-table').DataTable({
+        order: [[1, 'asc']], // Sort by priority by default
+        pageLength: 25,
+        columnDefs: [
+            { orderable: false, targets: [0, 6] }, // Disable sorting for checkboxes and actions
+            { searchable: false, targets: [0, 6] } // Disable search for checkboxes and actions
+        ]
+    });
+
+    // Handle select all checkbox
+    $('#select-all').on('change', function() {
+        const isChecked = this.checked;
+        $('.rule-select').prop('checked', isChecked);
+        updateSelection();
+    });
+
+    // Handle individual checkbox changes
+    $(document).on('change', '.rule-select', function() {
+        updateSelection();
         
-        if (selected.length === 0) {
-            selectedRulesDiv.innerHTML = '<small class="text-muted">Select 2 rules from the table below to combine</small>';
-            combineBtn.disabled = true;
-            rule1Input.value = '';
-            rule2Input.value = '';
-        } else if (selected.length === 1) {
-            const ruleName = selected[0].getAttribute('data-rule-name');
-            const matchCount = selected[0].getAttribute('data-match-count');
-            selectedRulesDiv.innerHTML = `<small class="text-info">Selected: <strong>${ruleName}</strong> (${matchCount} matches) - Select 1 more rule</small>`;
-            combineBtn.disabled = true;
-            rule1Input.value = selected[0].value;
-            rule2Input.value = '';
-        } else if (selected.length === 2) {
-            const rule1Name = selected[0].getAttribute('data-rule-name');
-            const rule1Count = selected[0].getAttribute('data-match-count');
-            const rule2Name = selected[1].getAttribute('data-rule-name');
-            const rule2Count = selected[1].getAttribute('data-match-count');
-            
-            selectedRulesDiv.innerHTML = `<small class="text-success">
-                Selected: <strong>${rule1Name}</strong> (${rule1Count} matches) + <strong>${rule2Name}</strong> (${rule2Count} matches)
-            </small>`;
-            combineBtn.disabled = false;
-            rule1Input.value = selected[0].value;
-            rule2Input.value = selected[1].value;
-            
-            // Auto-suggest combined name
-            if (!combinedNameInput.value) {
-                combinedNameInput.value = `${rule1Name} + ${rule2Name}`;
-            }
+        // Update select-all checkbox state
+        const totalCheckboxes = $('.rule-select').length;
+        const checkedCheckboxes = $('.rule-select:checked').length;
+        $('#select-all').prop('checked', totalCheckboxes === checkedCheckboxes);
+    });
+
+    function updateSelection() {
+        const selected = $('.rule-select:checked');
+        const count = selected.length;
+        const deleteBtn = $('#delete-selected-btn');
+        const combineBtn = $('#combine-selected-btn');
+        const infoDiv = $('#selected-rules-info');
+        
+        if (count === 0) {
+            infoDiv.html('<small class="text-muted">Select rules from the table below to perform actions</small>');
+            deleteBtn.prop('disabled', true);
+            combineBtn.prop('disabled', true);
+        } else if (count === 1) {
+            const ruleName = selected.first().data('rule-name');
+            const matchCount = selected.first().data('match-count');
+            infoDiv.html(`<small class="text-info">Selected: <strong>${ruleName}</strong> (${matchCount} matches)</small>`);
+            deleteBtn.prop('disabled', false);
+            combineBtn.prop('disabled', true);
         } else {
-            // More than 2 selected - disable extras
-            selected.slice(2).forEach(cb => cb.checked = false);
-            updateSelection(); // Recursively call to handle the corrected selection
-            return;
+            const ruleNames = selected.map(function() { 
+                return $(this).data('rule-name'); 
+            }).get();
+            infoDiv.html(`<small class="text-success">Selected ${count} rules: <strong>${ruleNames.join(', ')}</strong></small>`);
+            deleteBtn.prop('disabled', false);
+            combineBtn.prop('disabled', false);
         }
     }
+});
+
+// Delete selected rules
+function deleteSelectedRules() {
+    const selected = $('.rule-select:checked');
+    if (selected.length === 0) return;
     
-    // Add event listeners to all checkboxes
-    checkboxes.forEach(checkbox => {
-        checkbox.addEventListener('change', function() {
-            // If more than 2 are selected, uncheck this one
-            const selected = Array.from(checkboxes).filter(cb => cb.checked);
-            if (selected.length > 2) {
-                this.checked = false;
-                alert('You can only select 2 rules to combine');
-                return;
-            }
-            updateSelection();
-        });
+    const ruleNames = selected.map(function() { 
+        return $(this).data('rule-name'); 
+    }).get();
+    
+    if (!confirm(`Are you sure you want to delete ${selected.length} rules?\n\nRules: ${ruleNames.join(', ')}`)) {
+        return;
+    }
+    
+    const ruleIds = selected.map(function() { 
+        return $(this).val(); 
+    }).get();
+    
+    // Create and submit form
+    const form = $('<form>', {
+        method: 'POST',
+        action: '{{ url_for("delete_multiple_rules") }}'
     });
     
-    // Initial update
-    updateSelection();
-});
+    form.append($('<input>', {
+        type: 'hidden',
+        name: 'rule_ids',
+        value: ruleIds.join(',')
+    }));
+    
+    $('body').append(form);
+    form.submit();
+}
+
+// Show combine form
+function showCombineForm() {
+    const selected = $('.rule-select:checked');
+    if (selected.length < 2) return;
+    
+    const ruleIds = selected.map(function() { 
+        return $(this).val(); 
+    }).get();
+    
+    const ruleNames = selected.map(function() { 
+        return $(this).data('rule-name'); 
+    }).get();
+    
+    $('#rule_ids').val(ruleIds.join(','));
+    $('#combined_name').val(ruleNames.join(' + '));
+    $('#combine-form-container').removeClass('d-none');
+}
+
+// Hide combine form
+function hideCombineForm() {
+    $('#combine-form-container').addClass('d-none');
+    $('#combined_name').val('');
+    $('#delete_originals').prop('checked', false);
+}
 </script>
 {% endblock %}

@@ -220,19 +220,22 @@ def manual_create_upi_rules():
 
 @app.route('/rules/combine', methods=['POST'])
 def combine_rules():
-    """Combine two rules with OR logic"""
-    rule1_id = request.form.get('rule1_id', type=int)
-    rule2_id = request.form.get('rule2_id', type=int)
+    """Combine multiple rules with OR logic"""
+    rule_ids_str = request.form.get('rule_ids', '')
     combined_name = request.form.get('combined_name', '').strip()
     combined_priority = request.form.get('combined_priority', 5, type=int)
+    delete_originals = request.form.get('delete_originals') == 'on'
     
-    # Validation
-    if not rule1_id or not rule2_id:
-        flash('Please select two rules to combine', 'error')
+    # Parse rule IDs
+    try:
+        rule_ids = [int(id.strip()) for id in rule_ids_str.split(',') if id.strip()]
+    except ValueError:
+        flash('Invalid rule selection', 'error')
         return redirect(url_for('manage_rules'))
     
-    if rule1_id == rule2_id:
-        flash('Cannot combine a rule with itself', 'error')
+    # Validation
+    if len(rule_ids) < 2:
+        flash('Please select at least 2 rules to combine', 'error')
         return redirect(url_for('manage_rules'))
     
     if not combined_name:
@@ -249,12 +252,15 @@ def combine_rules():
         return redirect(url_for('manage_rules'))
     
     # Get the rules
-    rule1 = Rule.query.get_or_404(rule1_id)
-    rule2 = Rule.query.get_or_404(rule2_id)
+    rules = Rule.query.filter(Rule.id.in_(rule_ids)).all()
+    if len(rules) != len(rule_ids):
+        flash('Some selected rules not found', 'error')
+        return redirect(url_for('manage_rules'))
     
     try:
         # Create combined regex pattern with OR logic
-        combined_pattern = f'({rule1.regex_pattern})|({rule2.regex_pattern})'
+        patterns = [f'({rule.regex_pattern})' for rule in rules]
+        combined_pattern = '|'.join(patterns)
         
         # Validate the combined pattern
         re.compile(combined_pattern)
@@ -266,14 +272,64 @@ def combine_rules():
             priority=combined_priority
         )
         db.session.add(combined_rule)
+        
+        # Delete original rules if requested
+        if delete_originals:
+            # Update transactions that used the deleted rules
+            for rule in rules:
+                Transaction.query.filter_by(rule_id=rule.id).update({
+                    'rule_applied': None,
+                    'rule_id': None
+                })
+                db.session.delete(rule)
+        
         db.session.commit()
         
-        flash(f'Combined rule "{combined_name}" created successfully', 'success')
+        message = f'Combined rule "{combined_name}" created successfully'
+        if delete_originals:
+            message += f' and {len(rules)} original rules deleted'
+        flash(message, 'success')
         
     except re.error as e:
         flash(f'Error creating combined pattern: {str(e)}', 'error')
     except Exception as e:
         flash(f'Error combining rules: {str(e)}', 'error')
+    
+    return redirect(url_for('manage_rules'))
+
+@app.route('/rules/delete-multiple', methods=['POST'])
+def delete_multiple_rules():
+    """Delete multiple rules at once"""
+    rule_ids_str = request.form.get('rule_ids', '')
+    
+    # Parse rule IDs
+    try:
+        rule_ids = [int(id.strip()) for id in rule_ids_str.split(',') if id.strip()]
+    except ValueError:
+        flash('Invalid rule selection', 'error')
+        return redirect(url_for('manage_rules'))
+    
+    if not rule_ids:
+        flash('No rules selected for deletion', 'error')
+        return redirect(url_for('manage_rules'))
+    
+    try:
+        # Get the rules to delete
+        rules = Rule.query.filter(Rule.id.in_(rule_ids)).all()
+        
+        # Remove rules from transactions that used them
+        for rule in rules:
+            Transaction.query.filter_by(rule_id=rule.id).update({
+                'rule_applied': None,
+                'rule_id': None
+            })
+            db.session.delete(rule)
+        
+        db.session.commit()
+        flash(f'Successfully deleted {len(rules)} rules', 'success')
+        
+    except Exception as e:
+        flash(f'Error deleting rules: {str(e)}', 'error')
     
     return redirect(url_for('manage_rules'))
 
